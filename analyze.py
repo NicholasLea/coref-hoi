@@ -22,10 +22,13 @@ def get_prediction_path(config, config_name, saved_suffix, suffix=''):
 
 
 def get_prediction(config_name, saved_suffix, gpu_id):
+    print('saved_suffix:', saved_suffix)
     runner = Runner(config_name, gpu_id)
     conf = runner.config
+    print('finish conf')
 
     path = get_prediction_path(conf, config_name, saved_suffix)
+    # print('path:', path)
     if os.path.exists(path):
         # Load if saved
         with open(path, 'rb') as f:
@@ -36,8 +39,10 @@ def get_prediction(config_name, saved_suffix, gpu_id):
         model = runner.initialize_model(saved_suffix)
         examples_train, examples_dev, examples_test = runner.data.get_tensor_examples()
         stored_info = runner.data.get_stored_info()
+        print('finish get_tensor_examples')
 
         samples_test = [example[1] for example in examples_test]
+        # samples_test = samples_test[:5] #临时加上去
         predicted_clusters, predicted_spans, predicted_antecedents = runner.predict(model, samples_test)
         prediction = (predicted_clusters, predicted_spans, predicted_antecedents)
 
@@ -137,27 +142,44 @@ def check_singular_plural_cluster(cluster):
 def analyze(config_name, saved_suffix, gpu_id):
     runner = Runner(config_name, gpu_id)
     conf = runner.config
+    print('runner init finished')
 
     # Get gold clusters
     example_list = get_original_samples(conf)
+    # example_list = example_list[:5] # LK临时便于测试 临时
+    print('example_list', len(example_list))
     gold_to_cluster_id, non_anaphoric = get_gold_to_cluster_id(example_list)
+    print('example_list', len(example_list))
+
 
     # Get prediction
     predicted_clusters, predicted_spans, predicted_antecedents = get_prediction(config_name, saved_suffix, gpu_id)
+    # print('get_prediction finished')
+    # print('predicted_clusters', predicted_clusters)
+    # print('predicted_spans', predicted_spans)
+    # print('predicted_antecedents', predicted_antecedents)
+    # print('len(predicted_clusters)', len(predicted_clusters))
+    #
+    # print('len(predicted_antecedents)', len(predicted_antecedents))
 
     # Get cluster text
     cluster_list = []
     subtoken_list = []
     for i, example in enumerate(example_list):
         subtokens = util.flatten(example['sentences'])
+        print(f'i:{i}, subtokens:{subtokens}')
         subtoken_list.append(subtokens)
         cluster_list.append([[' '.join(subtokens[m[0]: m[1] + 1]) for m in c] for c in predicted_clusters[i]])
+
+    # print('cluster_list', cluster_list)
+    # print('subtoken_list', subtoken_list)
 
     # Get cluster stats
     num_clusters, num_singular_clusters, num_plural_clusters, num_mixed_clusters, num_mixed_ambiguous = 0, 0, 0, 0, 0
     for clusters in cluster_list:
-        # print(clusters)
+        # print('clusters', clusters)
         for c in clusters:
+            # print('c', c)
             singular, plural, contain_ambiguous = check_singular_plural_cluster(c)
             num_clusters += 1
             if singular and plural:
@@ -175,8 +197,12 @@ def analyze(config_name, saved_suffix, gpu_id):
     num_non_gold, num_total_spans = 0, 0
     for i, antecedents in enumerate(predicted_antecedents):
         antecedents = [(-1, -1) if a == -1 else predicted_spans[i][a] for a in antecedents]
+        # print('antecedents', antecedents)
         for j, antecedent in enumerate(antecedents):
             span = predicted_spans[i][j]
+            # print(f'i:{i}, span:{span}')
+            # print('len(gold_to_cluster_id)', len(gold_to_cluster_id))
+            # print('len(predicted_antecedents)', len(predicted_antecedents))
             span_cluster_id = gold_to_cluster_id[i][span]
             num_total_spans += 1
 
@@ -223,11 +249,16 @@ def analyze2(config_name, saved_suffix, gpu_id):
 
     # Get gold clusters
     example_list = get_original_samples(conf)
+    # print('example_list', example_list)
     gold_to_cluster_id, non_anaphoric = get_gold_to_cluster_id(example_list)
+    # print('gold_to_cluster_id', gold_to_cluster_id)
+    # print('non_anaphoric', non_anaphoric)
+
 
     # Get info
     named_entities, pronouns = [], []
     for example in example_list:
+        # print('example', example)
         named_entities.append(util.flatten(example['named_entities']))
         pronouns.append(util.flatten(example['pronouns']))
 
@@ -353,17 +384,23 @@ def get_link_status(predicted_spans, predicted_antecedents, gold_to_cluster_id, 
 
 
 if __name__ == '__main__':
-    gpu_id = 6
+    # gpu_id = 6
+    gpu_id = -1
 
-    experiments = [('train_bert_large_ml0_d1', 'May20_10-25-13_65000'),
-                   ('train_bert_large_ml0_d1', 'May21_00-29-00_66000'),
-                   ('train_bert_large_ml0_d1', 'May21_17-04-35_50000'),
-                   ('train_bert_large_ml0_d1', 'May24_03-33-55_58000')]
+    # experiments = [('train_bert_large_ml0_d1', 'May20_10-25-13_65000'),
+    #                ('train_bert_large_ml0_d1', 'May21_00-29-00_66000'),
+    #                ('train_bert_large_ml0_d1', 'May21_17-04-35_50000'),
+    #                ('train_bert_large_ml0_d1', 'May24_03-33-55_58000')]
+    #
+    # experiments = [('train_spanbert_large_ml0_d2', 'May08_12-24-06_64000'),
+    #                ('train_spanbert_large_ml0_d2', 'May08_12-38-29_58000')]
+
+    experiments = [('train_spanbert_large_ml0_d2', 'May08_12-24-06_64000')] #这里我们只弄一个看看就行了
 
     results_final = None
     for experiment in experiments:
-        # results = analyze(*experiment, gpu_id=gpu_id)
-        results = analyze2(*experiment, gpu_id=gpu_id)
+        results = analyze(*experiment, gpu_id=gpu_id) # 因为我只弄一个所以这的results_final都逻辑就不用看了
+        # results = analyze2(*experiment, gpu_id=gpu_id)
         if results is None:
             continue
 
@@ -376,6 +413,7 @@ if __name__ == '__main__':
         #       'FL %d; FN: %d; WL: %d; CORRECT %d; # gold spans: %d; # total spans: %d' % (*experiment, *results))
 
     results_final = [r / len(experiments) for r in results_final]
+    print('results_final', results_final)
 
     # Analyze
     # print('Avg: # clusters: %.3f; # singular clusters: %.3f; # plural clusters: %.3f; # mixed clusters: %.3f; # mixed with ambiguous: %.3f; '

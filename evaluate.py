@@ -16,4 +16,5 @@ def evaluate(config_name, gpu_id, saved_suffix):
 
 if __name__ == '__main__':
     config_name, saved_suffix, gpu_id = sys.argv[1], sys.argv[2], int(sys.argv[3])
+    # print('config_name:', config_name)
     evaluate(config_name, gpu_id, saved_suffix)

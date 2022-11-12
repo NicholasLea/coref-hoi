@@ -42,7 +42,9 @@ class Runner:
             util.set_seed(seed)
 
         # Set up device
-        self.device = torch.device('cpu' if gpu_id is None else f'cuda:{gpu_id}')
+        # self.device = torch.device('cpu' if gpu_id is None else f'cuda:{gpu_id}')
+        self.device = torch.device('cpu' if gpu_id < 0 else f'cuda:{gpu_id}')
+        print('device', self.device)
 
         # Set up data
         self.data = CorefDataProcessor(self.config)
@@ -192,7 +194,12 @@ class Runner:
         predicted_spans, predicted_antecedents, predicted_clusters = [], [], []
 
         model.eval()
-        for i, (doc_key, tensor_example) in enumerate(tensor_examples):
+        print('model eval finished')
+        # print('tensor_examples[0]', tensor_examples[0])
+        # print('len(tensor_examples[0])', len(tensor_examples[0]))
+        # for i, (doc_key, tensor_example) in enumerate(tensor_examples):
+        for i, tensor_example in enumerate(tensor_examples):
+            print('i:', i)
             tensor_example = tensor_example[:7]
             example_gpu = [d.to(self.device) for d in tensor_example]
             with torch.no_grad():

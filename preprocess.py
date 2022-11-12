@@ -221,7 +221,7 @@ def minimize_partition(partition, extension, args, tokenizer):
 
     # Read documents
     documents = []  # [(doc_key, lines)]
-    with open(input_path, 'r') as input_file:
+    with open(input_path, 'r', encoding='utf-8') as input_file:
         for line in input_file.readlines():
             begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)
             if begin_document_match:

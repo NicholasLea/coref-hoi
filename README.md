@@ -23,7 +23,8 @@ There are four higher-order inference (HOI) methods experimented: **Attended Ant
 Set up environment and data for training and evaluation:
 * Install Python3 dependencies: `pip install -r requirements.txt`
 * Create a directory for data that will contain all data files, models and log files; set `data_dir = /path/to/data/dir` in [experiments.conf](experiments.conf)
-* Prepare dataset (requiring [OntoNotes 5.0](https://catalog.ldc.upenn.edu/LDC2013T19) corpus): `./setup_data.sh /path/to/ontonotes /path/to/data/dir`
+* Prepare dataset (requiring [OntoNotes 5.0](https://catalog.ldc.upenn.edu/LDC2013T19) corpus): `./setup_data.sh ./ontonotes-release-5.0 ./data_dir
+`
 
 For SpanBERT, download the pretrained weights from this [repository](https://github.com/facebookresearch/SpanBERT), and rename it `/path/to/data/dir/spanbert_base` or `/path/to/data/dir/spanbert_large` accordingly.
 
@@ -42,7 +43,7 @@ If you want to use the official evaluator, download and unzip [conll 2012 scorer
 Evaluate a model on the dev/test set:
 * Download the corresponding model directory and unzip it under `data_dir`
 * `python evaluate.py [config] [model_id] [gpu_id]`
-    * e.g. Attended Antecedent:`python evaluate.py train_spanbert_large_ml0_d2 May08_12-38-29_58000 0`
+    * e.g. Attended Antecedent:`python evaluate.py train_spanbert_large_ml0_d2 May08_12-38-29_58000 -1`
 
 ## Prediction
 Prediction on custom input: see `python predict.py -h`

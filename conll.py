@@ -72,7 +72,10 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
 
 
 def official_conll_eval(gold_path, predicted_path, metric, official_stdout=True):
-    cmd = ["conll-2012/scorer/v8.01/scorer.pl", metric, gold_path, predicted_path, "none"]
+    # print('gold_path:', gold_path)
+    # print('predicted_path:', predicted_path)
+    # print('metric:', metric)
+    cmd = ["conll-2012\\scorer\\v8.01\\scorer.pl", metric, gold_path, predicted_path, "none"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     stdout, stderr = process.communicate()
     process.wait()
@@ -85,7 +88,9 @@ def official_conll_eval(gold_path, predicted_path, metric, official_stdout=True)
         logger.info("Official result for {}".format(metric))
         logger.info(stdout)
 
+    # print('stdout:', stdout)
     coref_results_match = re.match(COREF_RESULTS_REGEX, stdout)
+    # print('coref_results_match:', coref_results_match)
     recall = float(coref_results_match.group(1))
     precision = float(coref_results_match.group(2))
     f1 = float(coref_results_match.group(3))
