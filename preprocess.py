@@ -30,13 +30,19 @@ def get_sentence_map(segments, sentence_end):
     sent_map = []
     sent_idx, subtok_idx = 0, 0
     for segment in segments:
+        print('---')
+        print('segment', segment)
         sent_map.append(sent_idx)  # [CLS]
-        for i in range(len(segment) - 2):
+        print('sent_map', sent_map)
+        for i in range(len(segment) - 2): #-2是为了减去CLS和SEP
             sent_map.append(sent_idx)
-            sent_idx += int(sentence_end[subtok_idx])
-            subtok_idx += 1
+            sent_idx += int(sentence_end[subtok_idx]) #每经过一个sen_end为True，则sent_idx+1
+            # print('int(sentence_end[subtok_idx])', int(sentence_end[subtok_idx]))
+            subtok_idx += 1 #向右移动subtok_idx
         sent_map.append(sent_idx)  # [SEP]
+        print('sent_map', sent_map)
     return sent_map
+
 
 
 class DocumentState(object):
@@ -157,11 +163,22 @@ def split_into_segments(document_state: DocumentState, max_seg_len, constraints1
     curr_idx = 0  # Index for subtokens
     prev_token_idx = 0
     while curr_idx < len(document_state.subtokens):
+        print('---')
         # Try to split at a sentence end point
+        print('len(document_state.subtokens) - 1:', len(document_state.subtokens) - 1)
+        print('curr_idx + max_seg_len - 1 - 2:', curr_idx + max_seg_len - 1 - 2)
         end_idx = min(curr_idx + max_seg_len - 1 - 2, len(document_state.subtokens) - 1)  # Inclusive
-        while end_idx >= curr_idx and not constraints1[end_idx]:
+        print('end_idx', end_idx)
+        print('curr_idx', curr_idx)
+        while end_idx >= curr_idx and not constraints1[end_idx]:  # constraints1[end_idx]必须为T，否则一直在循环里
+            # print('end_idx inner', end_idx)
+            # print('end_idx inner', constraints1[end_idx])
             end_idx -= 1
-        if end_idx < curr_idx:
+        print('curr_idx2', curr_idx)
+        print('end_idx2', end_idx)
+
+        if end_idx < curr_idx:  # 这里是为了应对一种意外情况，如果没有sentence end,那么就用token end来寻找end_idx
+            print('no sentence end point')
             logger.info(f'{document_state.doc_key}: no sentence end found; split at token end')
             # If no sentence end point, try to split at token end point
             end_idx = min(curr_idx + max_seg_len - 1 - 2, len(document_state.subtokens) - 1)
@@ -171,10 +188,16 @@ def split_into_segments(document_state: DocumentState, max_seg_len, constraints1
                 logger.error('Cannot split valid segment: no sentence end or token end')
 
         segment = [tokenizer.cls_token] + document_state.subtokens[curr_idx: end_idx + 1] + [tokenizer.sep_token]
+        print('segment', segment)
         document_state.segments.append(segment)
 
         subtoken_map = document_state.subtoken_map[curr_idx: end_idx + 1]
-        document_state.segment_subtoken_map.append([prev_token_idx] + subtoken_map + [subtoken_map[-1]])
+        print('subtoken_map', subtoken_map)
+        print('[prev_token_idx]', [prev_token_idx])
+        print('[subtoken_map[-1]]', [subtoken_map[-1]])
+        print('[prev_token_idx] + subtoken_map + [subtoken_map[-1]]',
+              [prev_token_idx] + subtoken_map + [subtoken_map[-1]])
+        document_state.segment_subtoken_map.append([prev_token_idx] + subtoken_map + [subtoken_map[-1]])  # 这里在首尾又加了一些内容
 
         document_state.segment_info.append([None] + document_state.info[curr_idx: end_idx + 1] + [None])
 
@@ -189,48 +212,72 @@ def get_document(doc_key, doc_lines, language, seg_len, tokenizer):
 
     # Build up documents
     for line in doc_lines:
+        # print('line', line)
         row = line.split()  # Columns for each token
-        if len(row) == 0:
+        # print('row', row)
+        # print('document_state.sentence_end', document_state.sentence_end)
+        if len(row) == 0:  # 如果是空行
             document_state.sentence_end[-1] = True
         else:
             assert len(row) >= 12
             word_idx += 1
+            # print('row[3]', row[3])
             word = normalize_word(row[3], language)
+            # print('word', word)
             subtokens = tokenizer.tokenize(word)
+            # print('subtokens', subtokens)
             document_state.tokens.append(word)
-            document_state.token_end += [False] * (len(subtokens) - 1) + [True]
+            # print('document_state.tokens', document_state.tokens)
+            document_state.token_end += [False] * (len(subtokens) - 1) + [
+                True]  # 这个token_end就是用来表示这个subtoken是不是原token的最后一个
+            # print('document_state.token_end', document_state.token_end)
             for idx, subtoken in enumerate(subtokens):
+                # print('subtoken', subtoken)
                 document_state.subtokens.append(subtoken)
-                info = None if idx != 0 else (row + [len(subtokens)])
+                # print('document_state.subtokens', document_state.subtokens)
+                info = None if idx != 0 else (
+                            row + [len(subtokens)])  # 这个info就是把row所有信息都保留了，还加上了subtokens的长度（总共这个词有多少个subtoken)
+                # print('info', info)
                 document_state.info.append(info)
                 document_state.sentence_end.append(False)
+                # print('word_idx', word_idx)
                 document_state.subtoken_map.append(word_idx)
 
     # Split documents
     constraits1 = document_state.sentence_end if language != 'arabic' else document_state.token_end
+    # print('constraits1', constraits1)
     split_into_segments(document_state, seg_len, constraits1, document_state.token_end, tokenizer)
+    # document = document_state.finalize()
+
     document = document_state.finalize()
     return document
 
 
 def minimize_partition(partition, extension, args, tokenizer):
     input_path = os.path.join(args.input_dir, f'{partition}.{args.language}.{extension}')
+    print('input_path', input_path)
     output_path = os.path.join(args.output_dir, f'{partition}.{args.language}.{args.seg_len}.jsonlines')
+    print('output_path', output_path)
     doc_count = 0
     logger.info(f'Minimizing {input_path}...')
 
     # Read documents
     documents = []  # [(doc_key, lines)]
-    with open(input_path, 'r', encoding='utf-8') as input_file:
+    with open(input_path, 'r') as input_file:
         for line in input_file.readlines():
-            begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)
+            # print('line', line) # 通过打印可以看出来这里一行就是一个token，后面有一堆它的语法结构，说话的角色等等信息
+            begin_document_match = re.match(conll.BEGIN_DOCUMENT_REGEX, line)  # 一个正则表达式，是否是 begin document 这种格式
+            # print('begin_document_match', begin_document_match)
             if begin_document_match:
+                # print('begin_document_match.group(1)', begin_document_match.group(1))
+                # print('begin_document_match.group(2)', begin_document_match.group(2))
                 doc_key = conll.get_doc_key(begin_document_match.group(1), begin_document_match.group(2))
+                # print('doc_key', doc_key) #格式类似于friends-s02e23_0这样
                 documents.append((doc_key, []))
             elif line.startswith('#end document'):
                 continue
             else:
-                documents[-1][1].append(line)
+                documents[-1][1].append(line)  # 最后一个文档的lines这个list添加line
 
     # Write documents
     with open(output_path, 'w') as output_file:
@@ -268,6 +315,7 @@ if __name__ == '__main__':
     #                     help='Do lower case on input')
 
     args = parser.parse_args()
+    print('args:', args)
     logger.info(args)
     os.makedirs(args.output_dir, exist_ok=True)
 
