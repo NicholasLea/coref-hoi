@@ -29,6 +29,14 @@ def get_prediction(config_name, saved_suffix, gpu_id):
 
     path = get_prediction_path(conf, config_name, saved_suffix)
     # print('path:', path)
+
+    model = runner.initialize_model(saved_suffix)
+    examples_train, examples_dev, examples_test = runner.data.get_tensor_examples()
+    stored_info = runner.data.get_stored_info()
+    print('finish get_tensor_examples')
+    samples_test = [example[1] for example in examples_test]
+    print('samples_test[0]', samples_test[0])
+
     if os.path.exists(path):
         # Load if saved
         with open(path, 'rb') as f:
@@ -42,6 +50,7 @@ def get_prediction(config_name, saved_suffix, gpu_id):
         print('finish get_tensor_examples')
 
         samples_test = [example[1] for example in examples_test]
+        print('samples_test[0]', samples_test[0])
         # samples_test = samples_test[:5] #临时加上去
         predicted_clusters, predicted_spans, predicted_antecedents = runner.predict(model, samples_test)
         prediction = (predicted_clusters, predicted_spans, predicted_antecedents)
@@ -149,8 +158,6 @@ def analyze(config_name, saved_suffix, gpu_id):
     # example_list = example_list[:5] # LK临时便于测试 临时
     print('example_list', len(example_list))
     gold_to_cluster_id, non_anaphoric = get_gold_to_cluster_id(example_list)
-    print('example_list', len(example_list))
-
 
     # Get prediction
     predicted_clusters, predicted_spans, predicted_antecedents = get_prediction(config_name, saved_suffix, gpu_id)
@@ -167,7 +174,7 @@ def analyze(config_name, saved_suffix, gpu_id):
     subtoken_list = []
     for i, example in enumerate(example_list):
         subtokens = util.flatten(example['sentences'])
-        print(f'i:{i}, subtokens:{subtokens}')
+        # print(f'i:{i}, subtokens:{subtokens}')
         subtoken_list.append(subtokens)
         cluster_list.append([[' '.join(subtokens[m[0]: m[1] + 1]) for m in c] for c in predicted_clusters[i]])
 

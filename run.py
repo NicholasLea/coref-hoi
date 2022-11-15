@@ -196,11 +196,12 @@ class Runner:
         model.eval()
         print('model eval finished')
         # print('tensor_examples[0]', tensor_examples[0])
-        # print('len(tensor_examples[0])', len(tensor_examples[0]))
+        print('len(tensor_examples[0])', len(tensor_examples[0]))
         # for i, (doc_key, tensor_example) in enumerate(tensor_examples):
         for i, tensor_example in enumerate(tensor_examples):
             print('i:', i)
             tensor_example = tensor_example[:7]
+            print('tensor_example:', tensor_example)
             example_gpu = [d.to(self.device) for d in tensor_example]
             with torch.no_grad():
                 _, _, _, span_starts, span_ends, antecedent_idx, antecedent_scores = model(*example_gpu)
@@ -208,7 +209,10 @@ class Runner:
             antecedent_idx, antecedent_scores = antecedent_idx.tolist(), antecedent_scores.tolist()
             clusters, mention_to_cluster_id, antecedents = model.get_predicted_clusters(span_starts, span_ends, antecedent_idx, antecedent_scores)
 
-            spans = [(span_start, span_end) for span_start, span_end in zip(span_starts, span_ends)]
+            spans = [(span_start, span_end) for span_start, span_end in zip(span_starts, span_ends)] #这里
+            # print('len(spans):', len(spans))
+            # print('spans:', spans)
+
             predicted_spans.append(spans)
             predicted_antecedents.append(antecedents)
             predicted_clusters.append(clusters)
@@ -296,3 +300,5 @@ if __name__ == '__main__':
     model = runner.initialize_model()
 
     runner.train(model)
+
+# python run.py bert_base 0
